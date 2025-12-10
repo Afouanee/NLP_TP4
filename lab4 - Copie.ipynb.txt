@@ -1,0 +1,1459 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "id": "52815b5d",
+   "metadata": {},
+   "source": [
+    "# NLP Lab4 \n",
+    "\n",
+    "## Work to do and assessment policy:\n",
+    "\n",
+    "- The parts of this lab are independent.\n",
+    "- You may work by pairs, or alone. However, there is no benefit, nor increase of grade in case you work alone.\n",
+    "- Simply fill this notebook and upload it to [mvproxy](https://mvproxy.esiee.fr) no later than december 21st 23:59\n",
+    "\n",
+    "Please first indicate below who you have worked with :"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "7eebfd5e-bf5d-4111-9d9c-aefda27037b6",
+   "metadata": {},
+   "source": [
+    "### <font color=\"red\">Your answer here</font>"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "29fc2ad6-4365-42aa-95aa-10a005b5d042",
+   "metadata": {},
+   "source": [
+    "## Part A : Recurrent networks ($\\thickapprox$ 8 pts)\n",
+    "\n",
+    "### Introduction\n",
+    "\n",
+    "In [TD3](https://perso.esiee.fr/~hilairex/5I-SI5/TD3-corr.pdf), we saw that a linear Elman network, used in teacher forcing mode, could properly learn the time series $x_t = \\exp(at)$. This section only intends to demonstrate how Keras' [SimpleRNN](https://keras.io/api/layers/recurrent_layers/simple_rnn/) class operates on this elementary example.\n",
+    "\n",
+    "Let's say we have a sequence of length 30, which is a realization of $\\exp(at)_{t=1,...,30}$ for some $a \\not= 0$.  We first generate the time series, then compute its image through the SimpleRNN layer:\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "id": "0ec980dc",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "c:\\Users\\afoua\\miniconda3\\envs\\pynlp\\lib\\site-packages\\keras\\src\\layers\\rnn\\rnn.py:199: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.\n",
+      "  super().__init__(**kwargs)\n"
+     ]
+    },
+    {
+     "data": {
+      "text/plain": [
+       "<tf.Tensor: shape=(1, 29, 1), dtype=float32, numpy=\n",
+       "array([[[  1.3058513],\n",
+       "        [  2.7490404],\n",
+       "        [  4.344011 ],\n",
+       "        [  6.1067257],\n",
+       "        [  8.054827 ],\n",
+       "        [ 10.207811 ],\n",
+       "        [ 12.587228 ],\n",
+       "        [ 15.216889 ],\n",
+       "        [ 18.123116 ],\n",
+       "        [ 21.334991 ],\n",
+       "        [ 24.884663 ],\n",
+       "        [ 28.807657 ],\n",
+       "        [ 33.143238 ],\n",
+       "        [ 37.934795 ],\n",
+       "        [ 43.230286 ],\n",
+       "        [ 49.082706 ],\n",
+       "        [ 55.55063  ],\n",
+       "        [ 62.69879  ],\n",
+       "        [ 70.59873  ],\n",
+       "        [ 79.32951  ],\n",
+       "        [ 88.97852  ],\n",
+       "        [ 99.64233  ],\n",
+       "        [111.42765  ],\n",
+       "        [124.45245  ],\n",
+       "        [138.84708  ],\n",
+       "        [154.7556   ],\n",
+       "        [172.33723  ],\n",
+       "        [191.76794  ],\n",
+       "        [213.2422   ]]], dtype=float32)>"
+      ]
+     },
+     "execution_count": 1,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# Exercice 1 du TD3 : apprendre un Elman sur exp(at)\n",
+    "\n",
+    "\n",
+    "import numpy as np\n",
+    "import tensorflow as tf\n",
+    "from tensorflow.keras.models import Sequential, Model\n",
+    "from tensorflow.keras.layers import SimpleRNN, Dense, Input, Lambda\n",
+    "from tensorflow.keras.optimizers import Adam\n",
+    "\n",
+    "# Paramètres\n",
+    "a = 0.1  # Paramètre de la série\n",
+    "sequence_length = 30  # Longueur de la séquence\n",
+    "t = np.arange(sequence_length)\n",
+    "x_t = np.exp(a * t)  # Série temporelle x_t = exp(a * t)\n",
+    "\n",
+    "# Préparation des données\n",
+    "X, y = [], []\n",
+    "for i in range(len(x_t) - 1):\n",
+    "    X.append(x_t[i:i+1])  # Utilisation de la valeur actuelle pour prédire la suivante\n",
+    "    y.append(x_t[i+1])\n",
+    "\n",
+    "X = np.array(X)\n",
+    "y = np.array(y)\n",
+    "\n",
+    "hidden= SimpleRNN(1, input_shape=(1, ), activation='linear', return_sequences=True, return_state=False)  # Activation linéaire\n",
+    "hidden(X.reshape(1,29,1))\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "afed6c50",
+   "metadata": {},
+   "source": [
+    "Because we have set <tt>return_sequences=True</tt> in the constructor of <tt>SimpleRNN</tt>, the value of the hidden state is returned at every time step. In addition, the <tt>return_state parameter</tt> controls whether the final state of the hidden state should also be returned or not. Hence, \"return_sequences=True, return_state=False\" corresponds to a many-to-many case, whereas \"return_sequences=False, return_state=False\" to a many-to-one case."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "id": "18e7f12e",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<tf.Tensor: shape=(1, 1), dtype=float32, numpy=array([[249.31877]], dtype=float32)>"
+      ]
+     },
+     "execution_count": 2,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "hidden= SimpleRNN(1, input_shape=(1, ), activation='linear', return_sequences=False, return_state=False)\n",
+    "hidden(X.reshape(1,29,1))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "55439f5d",
+   "metadata": {},
+   "source": [
+    "Note that <tt>SimpleRNN</tt> only implements the hidden state equation of Elman's model, not its output equation. To have the complete model, we must also add a Dense layer, which we do in the next snippets. In addition, $h_0$, the initial state, is *not* learnable by SimpleRNN. It can be specified when calling the layer by setting the initial_state parameter to some value or variable -- namely 1.\n",
+    "\n",
+    "Here is the complete model for the many-to-many case :"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "6c57ea20",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "WARNING:tensorflow:From c:\\Users\\afoua\\miniconda3\\envs\\pynlp\\lib\\site-packages\\keras\\src\\backend\\tensorflow\\core.py:232: The name tf.placeholder is deprecated. Please use tf.compat.v1.placeholder instead.\n",
+      "\n"
+     ]
+    },
+    {
+     "data": {
+      "text/html": [
+       "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\"><span style=\"font-weight: bold\">Model: \"functional\"</span>\n",
+       "</pre>\n"
+      ],
+      "text/plain": [
+       "\u001b[1mModel: \"functional\"\u001b[0m\n"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "data": {
+      "text/html": [
+       "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\">┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓\n",
+       "┃<span style=\"font-weight: bold\"> Layer (type)                    </span>┃<span style=\"font-weight: bold\"> Output Shape           </span>┃<span style=\"font-weight: bold\">       Param # </span>┃\n",
+       "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩\n",
+       "│ input_layer (<span style=\"color: #0087ff; text-decoration-color: #0087ff\">InputLayer</span>)        │ (<span style=\"color: #00d7ff; text-decoration-color: #00d7ff\">None</span>, <span style=\"color: #00af00; text-decoration-color: #00af00\">29</span>, <span style=\"color: #00af00; text-decoration-color: #00af00\">1</span>)          │             <span style=\"color: #00af00; text-decoration-color: #00af00\">0</span> │\n",
+       "├─────────────────────────────────┼────────────────────────┼───────────────┤\n",
+       "│ lambda (<span style=\"color: #0087ff; text-decoration-color: #0087ff\">Lambda</span>)                 │ (<span style=\"color: #00d7ff; text-decoration-color: #00d7ff\">None</span>, <span style=\"color: #00af00; text-decoration-color: #00af00\">29</span>, <span style=\"color: #00af00; text-decoration-color: #00af00\">1</span>)          │             <span style=\"color: #00af00; text-decoration-color: #00af00\">0</span> │\n",
+       "├─────────────────────────────────┼────────────────────────┼───────────────┤\n",
+       "│ dense (<span style=\"color: #0087ff; text-decoration-color: #0087ff\">Dense</span>)                   │ (<span style=\"color: #00d7ff; text-decoration-color: #00d7ff\">None</span>, <span style=\"color: #00af00; text-decoration-color: #00af00\">29</span>, <span style=\"color: #00af00; text-decoration-color: #00af00\">1</span>)          │             <span style=\"color: #00af00; text-decoration-color: #00af00\">1</span> │\n",
+       "└─────────────────────────────────┴────────────────────────┴───────────────┘\n",
+       "</pre>\n"
+      ],
+      "text/plain": [
+       "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓\n",
+       "┃\u001b[1m \u001b[0m\u001b[1mLayer (type)                   \u001b[0m\u001b[1m \u001b[0m┃\u001b[1m \u001b[0m\u001b[1mOutput Shape          \u001b[0m\u001b[1m \u001b[0m┃\u001b[1m \u001b[0m\u001b[1m      Param #\u001b[0m\u001b[1m \u001b[0m┃\n",
+       "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩\n",
+       "│ input_layer (\u001b[38;5;33mInputLayer\u001b[0m)        │ (\u001b[38;5;45mNone\u001b[0m, \u001b[38;5;34m29\u001b[0m, \u001b[38;5;34m1\u001b[0m)          │             \u001b[38;5;34m0\u001b[0m │\n",
+       "├─────────────────────────────────┼────────────────────────┼───────────────┤\n",
+       "│ lambda (\u001b[38;5;33mLambda\u001b[0m)                 │ (\u001b[38;5;45mNone\u001b[0m, \u001b[38;5;34m29\u001b[0m, \u001b[38;5;34m1\u001b[0m)          │             \u001b[38;5;34m0\u001b[0m │\n",
+       "├─────────────────────────────────┼────────────────────────┼───────────────┤\n",
+       "│ dense (\u001b[38;5;33mDense\u001b[0m)                   │ (\u001b[38;5;45mNone\u001b[0m, \u001b[38;5;34m29\u001b[0m, \u001b[38;5;34m1\u001b[0m)          │             \u001b[38;5;34m1\u001b[0m │\n",
+       "└─────────────────────────────────┴────────────────────────┴───────────────┘\n"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "data": {
+      "text/html": [
+       "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\"><span style=\"font-weight: bold\"> Total params: </span><span style=\"color: #00af00; text-decoration-color: #00af00\">1</span> (4.00 B)\n",
+       "</pre>\n"
+      ],
+      "text/plain": [
+       "\u001b[1m Total params: \u001b[0m\u001b[38;5;34m1\u001b[0m (4.00 B)\n"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "data": {
+      "text/html": [
+       "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\"><span style=\"font-weight: bold\"> Trainable params: </span><span style=\"color: #00af00; text-decoration-color: #00af00\">1</span> (4.00 B)\n",
+       "</pre>\n"
+      ],
+      "text/plain": [
+       "\u001b[1m Trainable params: \u001b[0m\u001b[38;5;34m1\u001b[0m (4.00 B)\n"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "data": {
+      "text/html": [
+       "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\"><span style=\"font-weight: bold\"> Non-trainable params: </span><span style=\"color: #00af00; text-decoration-color: #00af00\">0</span> (0.00 B)\n",
+       "</pre>\n"
+      ],
+      "text/plain": [
+       "\u001b[1m Non-trainable params: \u001b[0m\u001b[38;5;34m0\u001b[0m (0.00 B)\n"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "data": {
+      "text/plain": [
+       "<tf.Tensor: shape=(1, 29, 1), dtype=float32, numpy=\n",
+       "array([[[  -3.3692932],\n",
+       "        [  -5.231116 ],\n",
+       "        [  -7.288748 ],\n",
+       "        [  -9.562783 ],\n",
+       "        [ -12.07598  ],\n",
+       "        [ -14.853493 ],\n",
+       "        [ -17.923119 ],\n",
+       "        [ -21.31558  ],\n",
+       "        [ -25.06483  ],\n",
+       "        [ -29.208391 ],\n",
+       "        [ -33.787735 ],\n",
+       "        [ -38.848694 ],\n",
+       "        [ -44.441917 ],\n",
+       "        [ -50.623386 ],\n",
+       "        [ -57.45496  ],\n",
+       "        [ -65.00503  ],\n",
+       "        [ -73.34914  ],\n",
+       "        [ -82.57081  ],\n",
+       "        [ -92.76233  ],\n",
+       "        [-104.025696 ],\n",
+       "        [-116.47364  ],\n",
+       "        [-130.23074  ],\n",
+       "        [-145.43471  ],\n",
+       "        [-162.23769  ],\n",
+       "        [-180.80785  ],\n",
+       "        [-201.33104  ],\n",
+       "        [-224.01268  ],\n",
+       "        [-249.07977  ],\n",
+       "        [-276.78317  ]]], dtype=float32)>"
+      ]
+     },
+     "execution_count": 3,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "inputs = Input(shape=(29, 1))\n",
+    "\n",
+    "rnn_layer = SimpleRNN(1, use_bias=False, activation='linear', return_sequences=True, kernel_initializer='ones', recurrent_initializer='identity')\n",
+    "\n",
+    "# lambda pour créer dynamiquement h0 selon la taille du lot à traiter\n",
+    "x = Lambda(lambda x: rnn_layer(x, initial_state=tf.ones((tf.shape(x)[0], 1))))(inputs)\n",
+    "\n",
+    "\n",
+    "outputs = Dense(1, use_bias=False, activation='linear')(x)\n",
+    "model = Model(inputs=inputs, outputs=outputs)\n",
+    "\n",
+    "model.compile(optimizer=Adam(learning_rate=0.001), loss='mse')\n",
+    "model.summary()\n",
+    "\n",
+    "# L'essayer\n",
+    "model(X.reshape(1,29,1))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "2ef63e2e",
+   "metadata": {},
+   "source": [
+    "Notice that there is just one trainable parameter, as expected. Then, we can train the model:"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 4,
+   "id": "61771054",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\u001b[1m1/1\u001b[0m \u001b[32m━━━━━━━━━━━━━━━━━━━━\u001b[0m\u001b[37m\u001b[0m \u001b[1m0s\u001b[0m 175ms/step\n",
+      "Valeurs réelles : [ 1.10517092  1.22140276  1.34985881  1.4918247   1.64872127  1.8221188\n",
+      "  2.01375271  2.22554093  2.45960311  2.71828183  3.00416602  3.32011692\n",
+      "  3.66929667  4.05519997  4.48168907  4.95303242  5.47394739  6.04964746\n",
+      "  6.68589444  7.3890561   8.16616991  9.0250135   9.97418245 11.02317638\n",
+      " 12.18249396 13.46373804 14.87973172 16.44464677 18.17414537]\n",
+      "Prédictions : [ -0.48094475  -0.74670786  -1.0404215   -1.3650253   -1.7237679\n",
+      "  -2.1202397   -2.558409    -3.042661    -3.577842    -4.1693087\n",
+      "  -4.82298     -5.5453987   -6.3437953   -7.22616     -8.2013235\n",
+      "  -9.279046   -10.470114   -11.786447   -13.24122    -14.848993\n",
+      " -16.625856   -18.589594   -20.759861   -23.158377   -25.809147\n",
+      " -28.7387     -31.976357   -35.55452    -39.509003  ]\n"
+     ]
+    }
+   ],
+   "source": [
+    "# Entraînement du modèle\n",
+    "model.fit(X.reshape(1, 29, 1), y.reshape(1,29,1), epochs=2000, verbose=0)\n",
+    "\n",
+    "# Prédiction\n",
+    "predictions = model.predict(X.reshape(1, 29, 1))\n",
+    "\n",
+    "# Affichage des résultats\n",
+    "print(\"Valeurs réelles :\", y)\n",
+    "print(\"Prédictions :\", predictions.flatten())\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "5c838b2c-27d2-487a-ab5c-4169ec1a5e18",
+   "metadata": {},
+   "source": [
+    "### Problem statement"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e697ffaa-4897-4f7e-836c-24314c1a300b",
+   "metadata": {},
+   "source": [
+    "Let $\\Sigma=\\lbrace \\lbrace, \\rbrace, a, b, \\rbrace$ be an alphabet of only 4 characters. We consider strings made from $\\Sigma$ that have the following property : whenever a '{' character appears, it must match a corresponding '}' character later on, without that any new '{' character may appear in the mean time. In other words, our strings obey the regex\n",
+    "```pre\n",
+    "({[ab]*})*\n",
+    "```\n",
+    "\n",
+    "### Question A1\n",
+    "Propose an Elman network that solves this recognition problem *exactly* : it must achieve a 100% accuracy whatever the input source. For your convenience :\n",
+    "* it is suggested that $\\lbrace = (1,0,0,0)$, $\\rbrace=(0,1,0,0)$, $a=b=(0,0,1,0)$ as a starter, but <b>you may choose different dimensions and values</b>.\n",
+    "* Elman's equations are given as $$ \\begin{align*} h_t &= f(U h_{t-1} + Wx_t) \\\\ y_t&=g(Vh_t) \\end{align*}$$\n",
+    "* and dummy expressions of $U,V,W$ are given below as your answer, so that you can use a Latex template.\n",
+    "\n",
+    "This question does not require any programming at all : to answer, it is sufficient to fully specify all matrices, and ideally add 1-2 sentences exlaining how your network works. Beware : invalid strings must be <tt>rejected</tt>, not accepted."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "07ec61f8-6884-4373-afbe-11d1941a807e",
+   "metadata": {},
+   "source": [
+    "### <font color=\"red\">Your answer here</font>\n",
+    "\n",
+    "We think that $U=\\left( \\begin{array}{cccc}\n",
+    "1 & 2 & 3 & 4 \\\\\n",
+    "5 & 6 & 7 & 8 \\\\\n",
+    "9 & 0 & 1 & 2 \\\\\n",
+    "3 & 4 & 5 & 6\n",
+    "\\end{array}\n",
+    "\\right)$, and $W=\\left( \\begin{array}{cccc}\n",
+    "1 & 2 & 3 & 4 \\\\\n",
+    "5 & 6 & 7 & 8 \\\\\n",
+    "9 & 0 & 1 & 2 \\\\\n",
+    "3 & 4 & 5 & 6\n",
+    "\\end{array}\n",
+    "\\right)$, and $V= (1,2,3,4)^\\top$ are clever choices, because our network would then operate as follows :\n",
+    "* if input = '{', then\n",
+    "* else if input = '}', then\n",
+    "* ..."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "729dcdcc-1076-4db0-b318-fdbcd0421e94",
+   "metadata": {},
+   "source": [
+    "### Question A2\n",
+    "\n",
+    "The following code trains an LSTM network to properly separate the strings you have just worked on. It should achieve a very high accuracy (nearby 100%). Try to interpret the matrices it prints, in a broad sense : which coefficients are likely to trigger which gate, when which symbol is met ?. If you can't, explain how LSTM could be used to sucessfully process such strings, even if their length become arbitrary large (once again, this amounts to determining which gate should react to which symbol, and why).\n",
+    "\n",
+    "This question does not require any programming."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "4327783c-183d-4286-824f-a8a656b6f083",
+   "metadata": {},
+   "source": [
+    "### <font color=\"red\">Your answer here</font>"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 5,
+   "id": "756fc077-59a3-4a4e-834d-3c3a4cf16814",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "Forme des données d'entraînement : X=(4500, 10, 4), y=(4500, 2)\n",
+      "\n",
+      "Début de l'entraînement de l'architecture LSTM...\n",
+      "\n",
+      "Précision sur l'ensemble de test (LSTM): 100.00%\n",
+      "\n",
+      "================================================================================\n",
+      "ANALYSE DES MATRICES DE POIDS D'ENTRÉE LSTM (W_i, W_f, W_c, W_o)\n",
+      "Cols: Entrées ({, }, a, b) / Lignes: Neurones Cachés (h1 à h4)\n",
+      "================================================================================\n",
+      "\n",
+      "--- Matrice d'Entrée W_i (Input Gate) ---\n",
+      "              {        }        a        b\n",
+      "h1:  -0.1381  -0.2418  -0.8643   0.8981\n",
+      "h2:   0.7994   0.6667   0.1277   0.6879\n",
+      "h3:  -0.2690   0.6836  -0.4907   0.1601\n",
+      "h4:   0.3706   0.2812   0.3868  -0.0256\n",
+      "\n",
+      "--- Matrice d'Oubli W_f (Forget Gate) ---\n",
+      "              {        }        a        b\n",
+      "h1:   0.1378  -1.4328  -0.1523   0.4121\n",
+      "h2:   2.1547   1.2244  -1.5588   1.5166\n",
+      "h3:   0.5037  -0.0785  -0.9692  -0.1075\n",
+      "h4:   0.0680  -0.1215  -0.9417  -0.2530\n",
+      "\n",
+      "--- Matrice d'État Candidat W_c (Candidate Cell State) ---\n",
+      "              {        }        a        b\n",
+      "h1:   0.3200  -0.4103  -0.2409  -0.5035\n",
+      "h2:  -0.1351  -0.2555   1.3123  -0.0370\n",
+      "h3:   0.6379  -0.5162  -0.1658   0.1814\n",
+      "h4:   0.4818  -0.1284   0.2060  -0.2997\n",
+      "\n",
+      "--- Matrice de Sortie W_o (Output Gate) ---\n",
+      "              {        }        a        b\n",
+      "h1:   0.1385  -0.2074   0.3112   0.4792\n",
+      "h2:   1.6931   0.2218   0.8226   1.2526\n",
+      "h3:   0.8570   0.6079  -1.1344   0.5196\n",
+      "h4:   0.2105   0.2516  -0.2921  -0.3201\n",
+      "\n",
+      "================================================================================\n",
+      "ANALYSE DES MATRICES DE POIDS RÉCURRENTS LSTM (U_i, U_f, U_c, U_o)\n",
+      "Cols/Lignes: Neurones Cachés (h1 à h4)\n",
+      "================================================================================\n",
+      "\n",
+      "--- Matrice d'Entrée U_i ---\n",
+      "             h1       h2       h3       h4\n",
+      "h1:   0.3804   0.7506   1.2214  -0.6014\n",
+      "h2:  -0.2694   0.4798  -1.5606  -0.6841\n",
+      "h3:  -1.8895  -1.6028  -0.4956   0.4479\n",
+      "h4:  -0.2832   0.1917  -1.0952  -0.4348\n",
+      "\n",
+      "--- Matrice d'Oubli U_f ---\n",
+      "             h1       h2       h3       h4\n",
+      "h1:  -0.4496  -0.5325  -0.5902  -0.5381\n",
+      "h2:   0.0736   0.1966   0.5116   0.3354\n",
+      "h3:   0.4642   0.6286   0.0194   0.6394\n",
+      "h4:   0.7998   0.1751  -0.6401  -0.2944\n",
+      "\n",
+      "--- Matrice d'État Candidat U_c ---\n",
+      "             h1       h2       h3       h4\n",
+      "h1:   0.2001  -0.4818   0.2497  -0.6852\n",
+      "h2:  -0.3157   0.0202  -0.3012   0.5129\n",
+      "h3:   0.5158   0.6351   1.0012  -0.2500\n",
+      "h4:  -0.4741  -0.1363  -0.5584   1.1418\n",
+      "\n",
+      "--- Matrice de Sortie U_o ---\n",
+      "             h1       h2       h3       h4\n",
+      "h1:  -0.2894   0.4919  -0.0387  -0.3869\n",
+      "h2:   0.0948  -0.4485  -0.7730   0.0104\n",
+      "h3:  -1.1779  -1.0280  -0.5477   1.7222\n",
+      "h4:  -0.2228  -0.4235  -1.5553  -0.7127\n"
+     ]
+    }
+   ],
+   "source": [
+    "import numpy as np\n",
+    "import tensorflow as tf\n",
+    "from tensorflow.keras.models import Sequential\n",
+    "from tensorflow.keras.layers import LSTM, Dense\n",
+    "from tensorflow.keras.utils import to_categorical\n",
+    "\n",
+    "# Fixer la graine pour la reproductibilité (les résultats varient peu, mais c'est une bonne pratique)\n",
+    "tf.random.set_seed(42)\n",
+    "\n",
+    "# --- 1. Paramètres et Préparation des Données ---\n",
+    "\n",
+    "CHARS = {'{': 0, '}': 1, 'a': 2, 'b': 3}\n",
+    "VOCAB_SIZE = len(CHARS) # 4\n",
+    "MAX_LEN = 10\n",
+    "# Nous gardons la même dimension pour l'état caché (h_t et c_t)\n",
+    "HIDDEN_DIM = 4 \n",
+    "\n",
+    "def generate_sequences(num_sequences):\n",
+    "    \"\"\"Génère des chaînes valides (1) et invalides (0) selon ({[ab]*})+.\"\"\"\n",
+    "    X_list = []\n",
+    "    y_list = []\n",
+    "    \n",
+    "    while len(X_list) < num_sequences:\n",
+    "        # --- Séquence Valide (Label 1) ---\n",
+    "        valid_seq = \"\"\n",
+    "        num_blocks = np.random.randint(1, 4) \n",
+    "        \n",
+    "        for _ in range(num_blocks):\n",
+    "            max_content_len = MAX_LEN - len(valid_seq) - 2\n",
+    "            if max_content_len < 0: break\n",
+    "            \n",
+    "            content_len = np.random.randint(0, max_content_len + 1)\n",
+    "            content = ''.join(np.random.choice(['a', 'b'], content_len))\n",
+    "            valid_seq += '{' + content + '}'\n",
+    "        \n",
+    "        if len(valid_seq) > 0 and len(valid_seq) <= MAX_LEN:\n",
+    "            X_list.append(valid_seq.ljust(MAX_LEN, ' '))\n",
+    "            y_list.append(1) \n",
+    "        \n",
+    "        if len(X_list) >= num_sequences: break\n",
+    "\n",
+    "        # --- Séquence Invalide (Label 0) ---\n",
+    "        invalid_type = np.random.randint(0, 4)\n",
+    "        invalid_seq = \"\"\n",
+    "        \n",
+    "        if invalid_type == 0:\n",
+    "            content_len = np.random.randint(0, 8)\n",
+    "            content = ''.join(np.random.choice(['a', 'b'], content_len))\n",
+    "            invalid_seq = '{' + content\n",
+    "        elif invalid_type == 1:\n",
+    "            invalid_seq = '}' + ''.join(np.random.choice(['{', 'a', 'b'], 2))\n",
+    "        elif invalid_type == 2:\n",
+    "            invalid_seq = 'a{b}'\n",
+    "        else:\n",
+    "            invalid_seq = '{' + '}' + 'a'\n",
+    "            \n",
+    "        if len(invalid_seq) > 0 and len(invalid_seq) <= MAX_LEN:\n",
+    "            X_list.append(invalid_seq.ljust(MAX_LEN, ' '))\n",
+    "            y_list.append(0) \n",
+    "\n",
+    "        if len(X_list) >= num_sequences: break\n",
+    "\n",
+    "    return X_list, np.array(y_list)\n",
+    "\n",
+    "def encode_sequences(sequences):\n",
+    "    \"\"\"Encode les chaînes en tenseurs One-Hot.\"\"\"\n",
+    "    X_encoded = np.zeros((len(sequences), MAX_LEN, VOCAB_SIZE), dtype=np.float32)\n",
+    "    \n",
+    "    for i, seq in enumerate(sequences):\n",
+    "        for t, char in enumerate(seq):\n",
+    "            if char in CHARS:\n",
+    "                X_encoded[i, t, CHARS[char]] = 1.0\n",
+    "\n",
+    "    return X_encoded\n",
+    "\n",
+    "N_SAMPLES = 5000\n",
+    "X_raw, y = generate_sequences(N_SAMPLES)\n",
+    "X_data = encode_sequences(X_raw)\n",
+    "\n",
+    "split_idx = int(0.9 * N_SAMPLES)\n",
+    "X_train, X_test = X_data[:split_idx], X_data[split_idx:]\n",
+    "y_train, y_test = y[:split_idx], y[split_idx:]\n",
+    "\n",
+    "y_train_oh = to_categorical(y_train, num_classes=2)\n",
+    "y_test_oh = to_categorical(y_test, num_classes=2)\n",
+    "\n",
+    "print(f\"Forme des données d'entraînement : X={X_train.shape}, y={y_train_oh.shape}\")\n",
+    "\n",
+    "\n",
+    "# --- 2. Construction et Entraînement du Modèle LSTM ---\n",
+    "\n",
+    "model = Sequential([\n",
+    "    LSTM(\n",
+    "        HIDDEN_DIM, \n",
+    "        input_shape=(MAX_LEN, VOCAB_SIZE),\n",
+    "        return_sequences=False\n",
+    "    ),\n",
+    "    Dense(2, activation='softmax')\n",
+    "])\n",
+    "\n",
+    "model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])\n",
+    "\n",
+    "print(\"\\nDébut de l'entraînement de l'architecture LSTM...\")\n",
+    "history = model.fit(\n",
+    "    X_train, y_train_oh, \n",
+    "    epochs=50, \n",
+    "    batch_size=32, \n",
+    "    validation_data=(X_test, y_test_oh),\n",
+    "    verbose=0\n",
+    ")\n",
+    "\n",
+    "loss, accuracy = model.evaluate(X_test, y_test_oh, verbose=0)\n",
+    "print(f\"\\nPrécision sur l'ensemble de test (LSTM): {accuracy * 100:.2f}%\")\n",
+    "\n",
+    "\n",
+    "# --- 3. Extraction et Examen des Matrices de Poids ---\n",
+    "\n",
+    "lstm_layer = model.layers[0]\n",
+    "weights = lstm_layer.get_weights()\n",
+    "\n",
+    "W = weights[0] # Matrice d'entrée complète (Input Kernel W) - Shape (4, 16)\n",
+    "U = weights[1] # Matrice récurrente complète (Recurrent Kernel U) - Shape (4, 16)\n",
+    "# B = weights[2] # Biais (Bias) - Shape (16,)\n",
+    "\n",
+    "# Keras/TensorFlow stocke les poids dans l'ordre: [i, f, c, o]\n",
+    "# Nous devons découper W (4x16) et U (4x16) en 4 matrices (4x4)\n",
+    "slice_size = HIDDEN_DIM # 4\n",
+    "\n",
+    "# Slicing pour W (Poids d'Entrée)\n",
+    "W_i = W[:, 0*slice_size:1*slice_size] # Input Gate\n",
+    "W_f = W[:, 1*slice_size:2*slice_size] # Forget Gate\n",
+    "W_c = W[:, 2*slice_size:3*slice_size] # Candidate Cell State\n",
+    "W_o = W[:, 3*slice_size:4*slice_size] # Output Gate\n",
+    "\n",
+    "# Slicing pour U (Poids Récurrents)\n",
+    "U_i = U[:, 0*slice_size:1*slice_size]\n",
+    "U_f = U[:, 1*slice_size:2*slice_size]\n",
+    "U_c = U[:, 2*slice_size:3*slice_size]\n",
+    "U_o = U[:, 3*slice_size:4*slice_size]\n",
+    "\n",
+    "\n",
+    "print(\"\\n\" + \"=\"*80)\n",
+    "print(\"ANALYSE DES MATRICES DE POIDS D'ENTRÉE LSTM (W_i, W_f, W_c, W_o)\")\n",
+    "print(\"Cols: Entrées ({, }, a, b) / Lignes: Neurones Cachés (h1 à h4)\")\n",
+    "print(\"=\"*80)\n",
+    "\n",
+    "char_indices = ['{', '}', 'a', 'b']\n",
+    "hidden_indices = ['h1', 'h2', 'h3', 'h4']\n",
+    "\n",
+    "def print_matrix(name, matrix):\n",
+    "    print(f\"\\n--- {name} ---\")\n",
+    "    print(f\"{'':>6} {'{':>8} {'}':>8} {'a':>8} {'b':>8}\")\n",
+    "    for i in range(HIDDEN_DIM):\n",
+    "        print(f\"{hidden_indices[i]}: {matrix[i, 0]:8.4f} {matrix[i, 1]:8.4f} {matrix[i, 2]:8.4f} {matrix[i, 3]:8.4f}\")\n",
+    "\n",
+    "print_matrix(\"Matrice d'Entrée W_i (Input Gate)\", W_i)\n",
+    "print_matrix(\"Matrice d'Oubli W_f (Forget Gate)\", W_f)\n",
+    "print_matrix(\"Matrice d'État Candidat W_c (Candidate Cell State)\", W_c)\n",
+    "print_matrix(\"Matrice de Sortie W_o (Output Gate)\", W_o)\n",
+    "\n",
+    "print(\"\\n\" + \"=\"*80)\n",
+    "print(\"ANALYSE DES MATRICES DE POIDS RÉCURRENTS LSTM (U_i, U_f, U_c, U_o)\")\n",
+    "print(\"Cols/Lignes: Neurones Cachés (h1 à h4)\")\n",
+    "print(\"=\"*80)\n",
+    "\n",
+    "def print_recurrent_matrix(name, matrix):\n",
+    "    print(f\"\\n--- {name} ---\")\n",
+    "    print(f\"{'':>6} {'h1':>8} {'h2':>8} {'h3':>8} {'h4':>8}\")\n",
+    "    for i in range(HIDDEN_DIM):\n",
+    "        print(f\"{hidden_indices[i]}: {matrix[i, 0]:8.4f} {matrix[i, 1]:8.4f} {matrix[i, 2]:8.4f} {matrix[i, 3]:8.4f}\")\n",
+    "\n",
+    "print_recurrent_matrix(\"Matrice d'Entrée U_i\", U_i)\n",
+    "print_recurrent_matrix(\"Matrice d'Oubli U_f\", U_f)\n",
+    "print_recurrent_matrix(\"Matrice d'État Candidat U_c\", U_c)\n",
+    "print_recurrent_matrix(\"Matrice de Sortie U_o\", U_o)\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "3ca2ca01-d0be-4171-8d09-2c15142fb57a",
+   "metadata": {},
+   "source": [
+    "## Part B : text classification ($\\thickapprox$ 6 pts)\n",
+    "\n",
+    "In this part, you will have to achieve the implementation of the RNN-based model shown on slide 28 of [Chapter 4](https://perso.esiee.fr/~hilairex/5I-SI5/rnn.pdf). The network accepts words as input, from sentences which don't exceed a certain length, and aim to perform text classification. \n",
+    "\n",
+    "You will work on the the IMDB reviews dataset, hosted by Kaggle [here](https://www.kaggle.com/code/trentpark/data-analysis-basics-imdb-dataset). The reviews have two outcomes : positive, or negative. A copy of this dataset can be found at https://mvproxy.esiee.fr/NLP/Lab4\n",
+    "\n",
+    "The following code snippets perform the first steps on text for you - loading, vectorising, and training a basic (non-recurrent) FFN."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 6,
+   "id": "0ec980db",
+   "metadata": {},
+   "outputs": [
+    {
+     "ename": "ModuleNotFoundError",
+     "evalue": "No module named 'pandas'",
+     "output_type": "error",
+     "traceback": [
+      "\u001b[1;31m---------------------------------------------------------------------------\u001b[0m",
+      "\u001b[1;31mModuleNotFoundError\u001b[0m                       Traceback (most recent call last)",
+      "Cell \u001b[1;32mIn[6], line 2\u001b[0m\n\u001b[0;32m      1\u001b[0m \u001b[38;5;28;01mimport\u001b[39;00m\u001b[38;5;250m \u001b[39m\u001b[38;5;21;01mnumpy\u001b[39;00m\u001b[38;5;250m \u001b[39m\u001b[38;5;28;01mas\u001b[39;00m\u001b[38;5;250m \u001b[39m\u001b[38;5;21;01mnp\u001b[39;00m\n\u001b[1;32m----> 2\u001b[0m \u001b[38;5;28;01mimport\u001b[39;00m\u001b[38;5;250m \u001b[39m\u001b[38;5;21;01mpandas\u001b[39;00m\u001b[38;5;250m \u001b[39m\u001b[38;5;28;01mas\u001b[39;00m\u001b[38;5;250m \u001b[39m\u001b[38;5;21;01mpd\u001b[39;00m\n\u001b[0;32m      3\u001b[0m \u001b[38;5;28;01mfrom\u001b[39;00m\u001b[38;5;250m \u001b[39m\u001b[38;5;21;01msklearn\u001b[39;00m\u001b[38;5;21;01m.\u001b[39;00m\u001b[38;5;21;01mmodel_selection\u001b[39;00m\u001b[38;5;250m \u001b[39m\u001b[38;5;28;01mimport\u001b[39;00m train_test_split\n\u001b[0;32m      4\u001b[0m \u001b[38;5;28;01mimport\u001b[39;00m\u001b[38;5;250m \u001b[39m\u001b[38;5;21;01mnltk\u001b[39;00m\n",
+      "\u001b[1;31mModuleNotFoundError\u001b[0m: No module named 'pandas'"
+     ]
+    }
+   ],
+   "source": [
+    "import numpy as np\n",
+    "import pandas as pd\n",
+    "from sklearn.model_selection import train_test_split\n",
+    "import nltk\n",
+    "import tensorflow as tf\n",
+    "from keras.models import Sequential\n",
+    "\n",
+    "reviews = pd.read_csv(\"IMDB Dataset.csv\")\n",
+    "reviews.head(2)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "c6a400ba-34c9-47d0-8c80-162a87e9555a",
+   "metadata": {},
+   "source": [
+    "We first perform a standard test/train split. During development, I strongly suggest that you first use a small amount of samples (1000) for validation. IMDb has 50000 reviews, which is too much. Keep in ming that training RNNs is *slow*"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "18e7f12c",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "train, test= train_test_split(reviews, shuffle=True, train_size=1000, test_size=200)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "fa581b2d-fe3d-4181-bcde-538306d94587",
+   "metadata": {},
+   "source": [
+    "The next step is to vectorize the text. In Lab3, I provided a vecto() function which did this, with relevant padding. I also mentioned Keras offered a TextVectorization layer which did exactly the same job. Its effects are shown below. \n",
+    "\n",
+    "In particular, note that unknown words yield an index of 1, and 0 is used for padding. So real indexation starts at index 2."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "6c57ea19",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/plain": [
+       "<tf.Tensor: shape=(2, 10), dtype=int64, numpy=\n",
+       "array([[ 8, 10,  2,  5,  0,  0,  0,  0,  0,  0],\n",
+       "       [ 4,  1,  7,  1,  0,  0,  0,  0,  0,  0]])>"
+      ]
+     },
+     "execution_count": 6,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# text vectorization : quick demo\n",
+    "vecto= tf.keras.layers.TextVectorization(max_tokens=99, output_mode='int', output_sequence_length=10)\n",
+    "vecto.adapt([[\"I am the king of the world\"],[\"You are the queen\"]])\n",
+    "vecto([[\"I am the queen\"],[\"World is king unknown\"]])"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "75da1233-51b1-43c4-9b1f-f496d6522edb",
+   "metadata": {},
+   "source": [
+    "We now change the call to adapt the layer to our train data. Note that IMDb reviews are rather long (about 300 words / review on average)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "61771053",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "max_words=20000  # the vocabulary size\n",
+    "seq_len=300     # maximum sequence length\n",
+    "vecto= tf.keras.layers.TextVectorization(max_tokens=max_words, output_mode='int', output_sequence_length=300)\n",
+    "vecto.adapt(train['review'].to_list())\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "006104cd-fa3c-48e6-96df-ccb3a3583e8a",
+   "metadata": {},
+   "source": [
+    "We are now ready to define our model. Below, I first demonstrate a model with input and vectorization layer alone ."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "850f1fb8",
+   "metadata": {},
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\"><span style=\"font-weight: bold\">Model: \"sequential\"</span>\n",
+       "</pre>\n"
+      ],
+      "text/plain": [
+       "\u001b[1mModel: \"sequential\"\u001b[0m\n"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "data": {
+      "text/html": [
+       "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\">┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓\n",
+       "┃<span style=\"font-weight: bold\"> Layer (type)                    </span>┃<span style=\"font-weight: bold\"> Output Shape           </span>┃<span style=\"font-weight: bold\">       Param # </span>┃\n",
+       "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩\n",
+       "│ text_vectorization_1            │ (<span style=\"color: #00d7ff; text-decoration-color: #00d7ff\">None</span>, <span style=\"color: #00af00; text-decoration-color: #00af00\">300</span>)            │             <span style=\"color: #00af00; text-decoration-color: #00af00\">0</span> │\n",
+       "│ (<span style=\"color: #0087ff; text-decoration-color: #0087ff\">TextVectorization</span>)             │                        │               │\n",
+       "└─────────────────────────────────┴────────────────────────┴───────────────┘\n",
+       "</pre>\n"
+      ],
+      "text/plain": [
+       "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓\n",
+       "┃\u001b[1m \u001b[0m\u001b[1mLayer (type)                   \u001b[0m\u001b[1m \u001b[0m┃\u001b[1m \u001b[0m\u001b[1mOutput Shape          \u001b[0m\u001b[1m \u001b[0m┃\u001b[1m \u001b[0m\u001b[1m      Param #\u001b[0m\u001b[1m \u001b[0m┃\n",
+       "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩\n",
+       "│ text_vectorization_1            │ (\u001b[38;5;45mNone\u001b[0m, \u001b[38;5;34m300\u001b[0m)            │             \u001b[38;5;34m0\u001b[0m │\n",
+       "│ (\u001b[38;5;33mTextVectorization\u001b[0m)             │                        │               │\n",
+       "└─────────────────────────────────┴────────────────────────┴───────────────┘\n"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "data": {
+      "text/html": [
+       "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\"><span style=\"font-weight: bold\"> Total params: </span><span style=\"color: #00af00; text-decoration-color: #00af00\">0</span> (0.00 B)\n",
+       "</pre>\n"
+      ],
+      "text/plain": [
+       "\u001b[1m Total params: \u001b[0m\u001b[38;5;34m0\u001b[0m (0.00 B)\n"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "data": {
+      "text/html": [
+       "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\"><span style=\"font-weight: bold\"> Trainable params: </span><span style=\"color: #00af00; text-decoration-color: #00af00\">0</span> (0.00 B)\n",
+       "</pre>\n"
+      ],
+      "text/plain": [
+       "\u001b[1m Trainable params: \u001b[0m\u001b[38;5;34m0\u001b[0m (0.00 B)\n"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "data": {
+      "text/html": [
+       "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\"><span style=\"font-weight: bold\"> Non-trainable params: </span><span style=\"color: #00af00; text-decoration-color: #00af00\">0</span> (0.00 B)\n",
+       "</pre>\n"
+      ],
+      "text/plain": [
+       "\u001b[1m Non-trainable params: \u001b[0m\u001b[38;5;34m0\u001b[0m (0.00 B)\n"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\u001b[1m1/1\u001b[0m \u001b[32m━━━━━━━━━━━━━━━━━━━━\u001b[0m\u001b[37m\u001b[0m \u001b[1m0s\u001b[0m 94ms/step\n"
+     ]
+    },
+    {
+     "data": {
+      "text/plain": [
+       "array([[ 11, 260,   2, 614,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,\n",
+       "          0]])"
+      ]
+     },
+     "execution_count": 8,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "# building model : vectorization alone\n",
+    "model= Sequential()\n",
+    "model.add(tf.keras.Input(shape=(1,), dtype=tf.string))\n",
+    "model.add(vecto)\n",
+    "model.compile(loss = 'categorical_crossentropy', optimizer='adam',metrics = ['accuracy'])\n",
+    "model.summary()\n",
+    "model.predict(tf.constant([['I am the king']]))"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "b965f05f-1e54-4366-896c-e4ec7f1c4503",
+   "metadata": {},
+   "source": [
+    "As we saw in labs 2 and 3, embeddings are mandatory. Hence, we will add an Embedding layer, but as opposed as what we did before, we will not initialize if from LSA, nor put it constant. Instead, we will let the model optimize this layer, possibly using dropout (if you use the related option). \n",
+    "The dimension of 80 below is a crude estimation (barely from lab2 and results on LSA)  "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "8b4f07e0",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "/home/hilairex/pynlp/lib64/python3.12/site-packages/keras/src/layers/core/embedding.py:90: UserWarning: Argument `input_length` is deprecated. Just remove it.\n",
+      "  warnings.warn(\n"
+     ]
+    },
+    {
+     "data": {
+      "text/html": [
+       "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\"><span style=\"font-weight: bold\">Model: \"sequential_1\"</span>\n",
+       "</pre>\n"
+      ],
+      "text/plain": [
+       "\u001b[1mModel: \"sequential_1\"\u001b[0m\n"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "data": {
+      "text/html": [
+       "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\">┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓\n",
+       "┃<span style=\"font-weight: bold\"> Layer (type)                    </span>┃<span style=\"font-weight: bold\"> Output Shape           </span>┃<span style=\"font-weight: bold\">       Param # </span>┃\n",
+       "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩\n",
+       "│ text_vectorization_1            │ (<span style=\"color: #00d7ff; text-decoration-color: #00d7ff\">None</span>, <span style=\"color: #00af00; text-decoration-color: #00af00\">300</span>)            │             <span style=\"color: #00af00; text-decoration-color: #00af00\">0</span> │\n",
+       "│ (<span style=\"color: #0087ff; text-decoration-color: #0087ff\">TextVectorization</span>)             │                        │               │\n",
+       "├─────────────────────────────────┼────────────────────────┼───────────────┤\n",
+       "│ embedding (<span style=\"color: #0087ff; text-decoration-color: #0087ff\">Embedding</span>)           │ (<span style=\"color: #00d7ff; text-decoration-color: #00d7ff\">None</span>, <span style=\"color: #00af00; text-decoration-color: #00af00\">300</span>, <span style=\"color: #00af00; text-decoration-color: #00af00\">80</span>)        │       <span style=\"color: #00af00; text-decoration-color: #00af00\">240,160</span> │\n",
+       "└─────────────────────────────────┴────────────────────────┴───────────────┘\n",
+       "</pre>\n"
+      ],
+      "text/plain": [
+       "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓\n",
+       "┃\u001b[1m \u001b[0m\u001b[1mLayer (type)                   \u001b[0m\u001b[1m \u001b[0m┃\u001b[1m \u001b[0m\u001b[1mOutput Shape          \u001b[0m\u001b[1m \u001b[0m┃\u001b[1m \u001b[0m\u001b[1m      Param #\u001b[0m\u001b[1m \u001b[0m┃\n",
+       "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩\n",
+       "│ text_vectorization_1            │ (\u001b[38;5;45mNone\u001b[0m, \u001b[38;5;34m300\u001b[0m)            │             \u001b[38;5;34m0\u001b[0m │\n",
+       "│ (\u001b[38;5;33mTextVectorization\u001b[0m)             │                        │               │\n",
+       "├─────────────────────────────────┼────────────────────────┼───────────────┤\n",
+       "│ embedding (\u001b[38;5;33mEmbedding\u001b[0m)           │ (\u001b[38;5;45mNone\u001b[0m, \u001b[38;5;34m300\u001b[0m, \u001b[38;5;34m80\u001b[0m)        │       \u001b[38;5;34m240,160\u001b[0m │\n",
+       "└─────────────────────────────────┴────────────────────────┴───────────────┘\n"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "data": {
+      "text/html": [
+       "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\"><span style=\"font-weight: bold\"> Total params: </span><span style=\"color: #00af00; text-decoration-color: #00af00\">240,160</span> (938.12 KB)\n",
+       "</pre>\n"
+      ],
+      "text/plain": [
+       "\u001b[1m Total params: \u001b[0m\u001b[38;5;34m240,160\u001b[0m (938.12 KB)\n"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "data": {
+      "text/html": [
+       "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\"><span style=\"font-weight: bold\"> Trainable params: </span><span style=\"color: #00af00; text-decoration-color: #00af00\">240,160</span> (938.12 KB)\n",
+       "</pre>\n"
+      ],
+      "text/plain": [
+       "\u001b[1m Trainable params: \u001b[0m\u001b[38;5;34m240,160\u001b[0m (938.12 KB)\n"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "data": {
+      "text/html": [
+       "<pre style=\"white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace\"><span style=\"font-weight: bold\"> Non-trainable params: </span><span style=\"color: #00af00; text-decoration-color: #00af00\">0</span> (0.00 B)\n",
+       "</pre>\n"
+      ],
+      "text/plain": [
+       "\u001b[1m Non-trainable params: \u001b[0m\u001b[38;5;34m0\u001b[0m (0.00 B)\n"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    },
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "\u001b[1m1/1\u001b[0m \u001b[32m━━━━━━━━━━━━━━━━━━━━\u001b[0m\u001b[37m\u001b[0m \u001b[1m0s\u001b[0m 76ms/step\n"
+     ]
+    },
+    {
+     "data": {
+      "text/plain": [
+       "array([[[ 0.01580559,  0.02355259,  0.02332291, ..., -0.004517  ,\n",
+       "          0.0277617 , -0.02131273],\n",
+       "        [ 0.01668474, -0.03429715, -0.04509323, ..., -0.00417768,\n",
+       "         -0.01822596,  0.0195891 ],\n",
+       "        [ 0.03996921, -0.02546388,  0.00366718, ...,  0.02894926,\n",
+       "         -0.00926412, -0.01020152],\n",
+       "        ...,\n",
+       "        [ 0.00812037, -0.04475567,  0.0241028 , ...,  0.04265859,\n",
+       "         -0.0465613 , -0.00206579],\n",
+       "        [ 0.00812037, -0.04475567,  0.0241028 , ...,  0.04265859,\n",
+       "         -0.0465613 , -0.00206579],\n",
+       "        [ 0.00812037, -0.04475567,  0.0241028 , ...,  0.04265859,\n",
+       "         -0.0465613 , -0.00206579]]], dtype=float32)"
+      ]
+     },
+     "execution_count": 9,
+     "metadata": {},
+     "output_type": "execute_result"
+    }
+   ],
+   "source": [
+    "model= Sequential()\n",
+    "model.add(tf.keras.Input(shape=(1,), dtype=tf.string))\n",
+    "model.add(vecto)\n",
+    "model.add(tf.keras.layers.Embedding(max_words+2, 80, input_length=seq_len))\n",
+    "model.compile(loss = 'categorical_crossentropy', optimizer='adam',metrics = ['accuracy'])\n",
+    "model.summary()\n",
+    "model.predict(tf.constant([['I am the king']]))\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "56b32f27-592e-481e-a0c1-57bc51735678",
+   "metadata": {},
+   "source": [
+    "### Question B1\n",
+    "\n",
+    "The following code reuses the previous ingredients up to TextVectorization, but lacks the definition of a model.\n",
+    "\n",
+    "Fill the part marked as\n",
+    "```pre\n",
+    "## ....\n",
+    "# A vous de jouer: définissez ici le modèle conformément au cours\n",
+    "## ....\n",
+    "```\n",
+    "so that the model defined there conform to the one shown on slide 38 of Chapter 4 [here](https://perso.esiee.fr/~hilairex/AIC-5102B/rnn.pdf). To be properly summarized by the summary() function, your model should be built using Keras' *functional* API,  not the *sequential()* function.  The recurrent network should be a bi-directional LSTM. The output network may boil down to a single layer network with appropriate dimensions.\n",
+    "\n",
+    "Some pieces of advice :\n",
+    "- Remember that embedding turns integer indexes into vectors. Hence your input data is a sequence of *vectors* whatever type of RNN you use.\n",
+    "- Be careful to overfitting and shapes.\n",
+    "- In the end, you want a single scalar to represent a decision : 1 or 0 (positive or negative)\n",
+    "- Keras has a [Bidirectional](https://keras.io/api/layers/recurrent_layers/bidirectional/) and a [Concatenate](https://keras.io/api/layers/merging_layers/concatenate/) layers, which can prove useful. However, you may build your model without using them, by resorting to Keras' functional API.\n",
+    "\n",
+    "With only 5 epochs, your model should achieve a rather good accuracy (~ 85%), but it might take longer to converge, depending on initial conditions. "
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "305646e9-682c-440f-a66b-a36ea7a2c0de",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import numpy as np\n",
+    "import pandas as pd\n",
+    "import tensorflow as tf\n",
+    "from tensorflow.keras import layers, models\n",
+    "from tensorflow.keras.preprocessing.sequence import pad_sequences\n",
+    "\n",
+    "# -------------------------------\n",
+    "# 1. Paramètres généraux\n",
+    "# -------------------------------\n",
+    "\n",
+    "max_features = 20000   # Nombre max de mots dans le vocabulaire\n",
+    "maxlen = 300           # Longueur max des séquences (padding/tronquage)\n",
+    "batch_size = 32\n",
+    "embedding_dim = 128\n",
+    "rnn_units = 128\n",
+    "epochs = 5\n",
+    "\n",
+    "# -------------------------------\n",
+    "# 2. Chargement du dataset IMDB (fichier CSV)\n",
+    "# -------------------------------\n",
+    "\n",
+    "df = pd.read_csv(\"IMDB Dataset.csv\")   # Colonnes : \"review\", \"sentiment\"\n",
+    "\n",
+    "# Conversion des labels\n",
+    "df[\"label\"] = df[\"sentiment\"].map({\"positive\": 1, \"negative\": 0})\n",
+    "\n",
+    "texts = df[\"review\"].astype(str).values\n",
+    "labels = df[\"label\"].values\n",
+    "\n",
+    "print(\"Nombre d'exemples :\", len(texts))\n",
+    "print(\"Exemple de texte :\", texts[0][:200], \"...\")\n",
+    "\n",
+    "# -------------------------------\n",
+    "# 3. Split train/test\n",
+    "# -------------------------------\n",
+    "\n",
+    "from sklearn.model_selection import train_test_split\n",
+    "x_train_text, x_test_text, y_train, y_test = train_test_split(\n",
+    "    texts, labels, test_size=0.2, random_state=42\n",
+    ")\n",
+    "\n",
+    "# -------------------------------\n",
+    "# 4. TextVectorization\n",
+    "# -------------------------------\n",
+    "\n",
+    "vectorizer = layers.TextVectorization(\n",
+    "    max_tokens=max_features,\n",
+    "    output_mode=\"int\",\n",
+    "    output_sequence_length=maxlen\n",
+    ")\n",
+    "\n",
+    "# Apprentissage du vocabulaire\n",
+    "vectorizer.adapt(x_train_text)\n",
+    "\n",
+    "# Encodage en séquences d'entiers\n",
+    "x_train = vectorizer(x_train_text)\n",
+    "x_test  = vectorizer(x_test_text)\n",
+    "\n",
+    "print(\"Forme x_train :\", x_train.shape)\n",
+    "print(\"Forme x_test  :\", x_test.shape)\n",
+    "\n",
+    "# -------------------------------\n",
+    "# 5. Construction du modèle\n",
+    "# -------------------------------\n",
+    "\n",
+    "inputs = tf.keras.layers.Input(shape=(maxlen,))\n",
+    "\n",
+    "## ....\n",
+    "# A vous de jouer: définissez ici le modèle conformément au cours\n",
+    "## ....\n",
+    "\n",
+    "model.compile(\n",
+    "    loss='binary_crossentropy',\n",
+    "    optimizer='adam',\n",
+    "    metrics=['accuracy']\n",
+    ")\n",
+    "\n",
+    "model.summary()\n",
+    "\n",
+    "# -------------------------------\n",
+    "# 6. Entraînement du modèle\n",
+    "# -------------------------------\n",
+    "\n",
+    "history = model.fit(\n",
+    "    x_train, y_train,\n",
+    "    batch_size=batch_size,\n",
+    "    epochs=epochs,\n",
+    "    validation_split=0.2,\n",
+    "    verbose=2\n",
+    ")\n",
+    "\n",
+    "# -------------------------------\n",
+    "# 7. Évaluation sur le jeu de test\n",
+    "# -------------------------------\n",
+    "\n",
+    "loss, acc = model.evaluate(x_test, y_test, verbose=2)\n",
+    "print(f\"\\nPrécision sur le test : {acc * 100:.2f} %\")\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "5a594865-b15e-4fbf-8230-0815143b098d",
+   "metadata": {},
+   "source": [
+    "### Question B2\n",
+    "\n",
+    "What happens if your code calls SimpleRNN() instead of LSTM() (all other things being equel)? Give a simple explanation of what is very likely to happen."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "6ce5df72-abae-49d0-a404-0f490929931d",
+   "metadata": {},
+   "source": [
+    "### <font color=\"red\">Your answer here</font>\n",
+    "\n"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "e0814b90",
+   "metadata": {},
+   "source": [
+    "## Part C : inference in neural machine translation ($\\thickapprox$ 8 pts)\n",
+    "\n",
+    "In this part, you will work on the coder+decoder network shown on slide 26 of [Chapter 5](https://perso.esiee.fr/~hilairex/AIC-5102B/lstm.pdf) of the course. We will use this model to translate english sentences to french sentences. To keep computation times acceptable on a laptop, we will not perform translation word by word, as this would require vocabularies of about 50k words in each language; but character by character, which involves merely 100 tokens in each language. Shortly said, we are using seq2seq for character sequence translation.\n",
+    "\n",
+    "The dataset we use for training is derived from transcripts of the European parliament - see https://www.statmt.org/europarl/ \n",
+    " \n",
+    "On [mvproxy](https://mvproxy.esiee.fr/NLP), you will find several files :\n",
+    "- english_filtered and french_filtered : reworked versions of english to french translations of sentences from Europarl.\n",
+    "- lab4c_train.py: Python implementation to train the network over the former files. This code is parameterized by lstm_units, which defines the dimension of the hidden space of the LSTM network used in both coder and decoder.\n",
+    "- en2fr<i>xxx</i>.keras + voc.pkl : the Keras model produced by training the model with <i>xxx</i> LSTM units, for both coder and decoder  + the related vocabularies found when parsing english_filtered and french_filtered\n",
+    "- lab4c_decode.py : simple implementation of greedy decoding from the decoder, still parameterized by lstm_units.\n",
+    "\n",
+    "Note that we have separated the problem in two parts : \n",
+    "- Training, or lab4c_train.py, which produces en2fr<i>xxx</i>.keras + voc.pkl the very first time it is ran. When ran again, it loads the vocabulary and last model it produced from disk, and refines training. If you run it again, the first training epochs should display the training and validation accuracies. All models have been trained using 2000 epochs.\n",
+    "- And decoding, which re-reads these files to rebuild the whole model. "
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "3592a81d-280b-4dce-9d40-06a5ceeb0085",
+   "metadata": {},
+   "source": [
+    "### Question C1\n",
+    "\n",
+    "Run the decoder for some <i>xxx</i>, and test it using some sentences found in the source (english) file. You should normally find that your text is not properly decoded, but that the output is not completely random, and somewhat resembles some imaginary french language. In other words, the seq2seq models you are using are hallucinating. \n",
+    "\n",
+    "Assuming that what you did in part A can be generalized, and would be the only way for a RNN to properly distinguish strings (this is really an assumption): \n",
+    "- are these hallucinations a surprise ?\n",
+    "- what should be changed so that the model you are using have chances not to hallicinate ?\n",
+    "  \n",
+    "Please provide a clear explanation of what can happen, considering all parameters (in particular, shapes of matrices), and also how decoding is done. You may simplify the problem and explain what happens if the model were an Elman network (extending to LSTM is just a matter of additional gates and matrices)."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "ec1b84bd-33f6-45d1-99f6-4276a07077c7",
+   "metadata": {},
+   "source": [
+    "### Your answer here"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "id": "c368f6f7",
+   "metadata": {},
+   "source": [
+    "### Question C2\n",
+    "\n",
+    "Below is a copy of lab4c_decode.py, the code of the decoder. Change the code of this function so that it no longer uses greedy decoding, but a beam search decoding of depth 4. Your code should be implemented as is Algorithm 1 on slide 30 of [chapter 5](https://perso.esiee.fr/~hilairex/AIC-5102B/lstm.pdf), with k=4. It should output several candidate strings rather than a single one. Test it using 3 strings."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "1318bf46",
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "#!/usr/bin/env python3\n",
+    "# -*- coding: utf-8 -*-\n",
+    "\"\"\"\n",
+    "Robust decoder that:\n",
+    " - uses model.inputs[0] to get encoder input tensor\n",
+    " - re-applies encoder Embedding before calling encoder LSTM\n",
+    " - reuses decoder Embedding + LSTM + Dense for one-step decoding\n",
+    " - performs greedy decoding\n",
+    "\"\"\"\n",
+    "\n",
+    "import pickle\n",
+    "import sys\n",
+    "import numpy as np\n",
+    "from tensorflow import keras\n",
+    "\n",
+    "units = 512\n",
+    "model_file = f\"en2fr{units}.keras\"\n",
+    "voc_file   = \"voc.pkl\"\n",
+    "begin = '\\x02'\n",
+    "end   = '\\x03'\n",
+    "max_target_len = 200\n",
+    "\n",
+    "# -----------------------\n",
+    "# Load model and vocab\n",
+    "# -----------------------\n",
+    "print(f\"Loading model: {model_file}\")\n",
+    "model = keras.models.load_model(model_file)\n",
+    "model.summary()\n",
+    "\n",
+    "with open(voc_file, 'rb') as f:\n",
+    "    voc, char2num, num2char = pickle.load(f)\n",
+    "print(\"Vocabulary loaded:\", [len(v) for v in voc])\n",
+    "\n",
+    "\n",
+    "# Encoder\n",
+    "enc_emb_layer = model.get_layer('l_enc_embedding')\n",
+    "enc_lstm_layer = model.get_layer('l_enc_lstm')\n",
+    "\n",
+    "# Decoder\n",
+    "dec_emb_layer = model.get_layer('l_dec_embedding')\n",
+    "dec_lstm_layer = model.get_layer('l_dec_lstm')\n",
+    "dec_dense_layer = model.get_layer('l_dec_dense')\n",
+    "\n",
+    "\n",
+    "# -----------------------\n",
+    "# Build encoder model: enc_input -> [h, c]\n",
+    "# -----------------------\n",
+    "# Apply encoder embedding to the encoder input tensor, then call the trained LSTM on it\n",
+    "enc_input_tensor = keras.Input(shape=(None,), dtype='int32')\n",
+    "enc_embedded = enc_emb_layer(enc_input_tensor)   # (batch, timesteps, emb_dim)\n",
+    "enc_out, enc_h, enc_c = enc_lstm_layer(enc_embedded)\n",
+    "encoder_model = keras.Model(inputs=enc_input_tensor, outputs=[enc_h, enc_c])\n",
+    "print(\"Encoder model built.\")\n",
+    "\n",
+    "# -----------------------\n",
+    "# Build decoder model for one-step decoding\n",
+    "# -----------------------\n",
+    "state_size = dec_lstm_layer.units\n",
+    "\n",
+    "dec_state_input_h = keras.Input(shape=(state_size,), name='dec_state_input_h')\n",
+    "dec_state_input_c = keras.Input(shape=(state_size,), name='dec_state_input_c')\n",
+    "dec_input_single = keras.Input(shape=(1,), dtype='int32', name='dec_input_single')  # a single timestep token\n",
+    "\n",
+    "# apply decoder embedding then decoder LSTM (one step)\n",
+    "dec_embedded = dec_emb_layer(dec_input_single)  # (batch, 1, emb_dim)\n",
+    "dec_outputs, dec_h, dec_c = dec_lstm_layer(dec_embedded, initial_state=[dec_state_input_h, dec_state_input_c])\n",
+    "dec_outputs = dec_dense_layer(dec_outputs)  # (batch, 1, vocab_size)\n",
+    "\n",
+    "decoder_model = keras.Model(\n",
+    "    [dec_input_single, dec_state_input_h, dec_state_input_c],\n",
+    "    [dec_outputs, dec_h, dec_c]\n",
+    ")\n",
+    "print(\"Decoder model built.\")\n",
+    "\n",
+    "# -----------------------\n",
+    "# Utilities: encode input / greedy decode\n",
+    "# -----------------------\n",
+    "def encode_input(text: str):\n",
+    "    \"\"\"Encode source text into int32 array (1, L). Append end marker if missing.\"\"\"\n",
+    "    if not text.endswith(end):\n",
+    "        text = text + end\n",
+    "    arr = np.zeros((1, len(text)), dtype='int32')\n",
+    "    for i, ch in enumerate(text):\n",
+    "        arr[0, i] = char2num[0].get(ch, 0)\n",
+    "    return arr\n",
+    "\n",
+    "def decode_greedy(src_text: str, maxlen: int = max_target_len):\n",
+    "    enc_seq = encode_input(src_text)\n",
+    "    # get encoder states\n",
+    "    h, c = encoder_model.predict(enc_seq, verbose=0)\n",
+    "\n",
+    "    # start token (<begin>)\n",
+    "    cur_token = np.array([[char2num[1][begin]]], dtype='int32')\n",
+    "    decoded_chars = []\n",
+    "\n",
+    "    for _ in range(maxlen):\n",
+    "        out_tokens, h, c = decoder_model.predict([cur_token, h, c], verbose=0)\n",
+    "        probs = out_tokens[0, 0, :]\n",
+    "        idx = int(np.argmax(probs))\n",
+    "        ch = num2char[1][idx]\n",
+    "        if ch == end:\n",
+    "            break\n",
+    "        decoded_chars.append(ch)\n",
+    "        cur_token = np.array([[idx]], dtype='int32')\n",
+    "\n",
+    "    return \"\".join(decoded_chars)\n",
+    "\n",
+    "# -----------------------\n",
+    "# Interactive loop\n",
+    "# -----------------------\n",
+    "print(\"Ready. Enter a source sentence (empty to quit).\")\n",
+    "try:\n",
+    "    while True:\n",
+    "        s = input(\"Source > \").strip()\n",
+    "        if s == \"\":\n",
+    "            break\n",
+    "        translation = decode_greedy(s)\n",
+    "        print(\"→\", translation)\n",
+    "except KeyboardInterrupt:\n",
+    "    print(\"\\nExiting.\")\n",
+    "    sys.exit(0)\n",
+    "\n"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "pynlp",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.10.19"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
